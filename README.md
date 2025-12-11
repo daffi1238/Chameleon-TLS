@@ -1,52 +1,105 @@
-✔️ Levantar el proxy TLS:
-mitmproxy --listen-port 8085 -s tls_camouflage.py
+# TLS Camouflage with mitmproxy + Burp Suite
+A practical setup to rewrite the TLS **ClientHello** and force browser-like fingerprints during your web application assessments.
 
-✔️ Configurar Burp
+---
 
-En:
+## 🚀 1. Start the TLS-camouflage proxy
+
+Run mitmproxy with your custom script:
+
+mitmproxy --listen-port 8085 -s chameleon.py
+
+This proxy will rewrite:
+
+- SNI  
+- Cipher suite ordering  
+- ALPN  
+- TLS extensions  
+- TLS version preferences  
+
+so the outbound fingerprint resembles a real browser (e.g., Chrome), helping bypass simple WAF/CDN TLS fingerprinting.
+
+---
+
+## 🧰 2. Configure Burp Suite to send traffic through mitmproxy
+
+### Step 2.1 — Add an upstream proxy
+
+Navigate to:
 
 User Options → Connections → Upstream Proxy Servers
 
+Add a rule:
 
-Añade:
+| Match | Proxy        | Port |
+|-------|--------------|------|
+| *     | 127.0.0.1    | 8085 |
 
-Match: *
-Proxy: 127.0.0.1
-Port: 8085
+This forces *all* outbound Burp traffic through mitmproxy.
 
-- Y desactiva “Use HTTP/2 when requesting from server” en Burp, para que sea mitmproxy quien gestione ALPN.
-```
-✅ Burp Suite 2023+ (la mayoría de instalaciones hoy)
+---
 
-Ve a:
-Project Options → HTTP
+## 🔧 3. Disable HTTP/2 negotiation in Burp
 
-Sección: HTTP/2
+To allow mitmproxy to control ALPN and TLS parameters, Burp **must not** negotiate HTTP/2 by itself.
 
-Desmarca:
-✔ Use HTTP/2 where possible
+If Burp attempts to use HTTP/2 directly with the server, mitmproxy cannot fully rewrite the handshake.
 
-Esto hace que Burp NO negocie ALPN con HTTP/2 directamente contra el servidor, dejando a tu proxy (mitmproxy) gestionar:
+---
 
-ALPN
+## 🧩 Burp Suite 2023+ (most installations today)
 
-TLS ClientHello
+Go to:
 
-Ciphers
+Project Options → HTTP → HTTP/2
 
-Extensiones
+Disable:
 
-✅ Burp Suite 2022.x – 2021.x
+Use HTTP/2 where possible
 
-En algunas versiones aparece así:
+This ensures Burp only uses HTTP/1.1 toward the server, leaving ALPN negotiation and all TLS fingerprinting to mitmproxy:
 
-Ruta:
+- ALPN selection  
+- TLS ClientHello structuring  
+- Cipher ordering  
+- Extensions (JA3-like fields)
+
+---
+
+## 🧩 Burp Suite 2021–2022 (older versions)
+
+Menu labels vary slightly.
+
+Go to:
+
 User Options → Connections → HTTP/2
 
-Desmarca:
+Disable:
 
-Use HTTP/2 when making requests to the server
-o
+- Use HTTP/2 when making requests to the server  
+or  
+- Enable HTTP/2 where supported
 
-Enable HTTP/2 where supported
-```
+Result: Burp stops negotiating HTTP/2, enabling mitmproxy to masquerade as a browser.
+
+---
+
+## ✔️ Summary
+
+When configured correctly:
+
+- Burp → sends HTTP/1.1 → into mitmproxy  
+- mitmproxy → performs a **browser-like TLS handshake**  
+- Target sees a normal browser rather than a security tool  
+- TLS fingerprinting defences are weakened  
+- CDNs/WAFs behave closer to how they treat real users  
+
+Ideal for bypassing bot detection or behavioural filtering based on TLS metadata.
+
+---
+
+## 🛡️ Notes
+
+- Ensure `chameleon.py` uses realistic, modern fingerprints (Chrome/Edge/Firefox).  
+- If chaining proxies, mitmproxy must be the component negotiating TLS with the target.  
+- Validate fingerprints using JA3/JA3S monitoring tools.
