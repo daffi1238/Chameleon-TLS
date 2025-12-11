@@ -6,9 +6,9 @@ A practical setup to rewrite the TLS **ClientHello** and force browser-like fing
 ## 🚀 1. Start the TLS-camouflage proxy
 
 Run mitmproxy with your custom script:
-
+```bash
 mitmproxy --listen-port 8085 -s chameleon.py
-
+```
 This proxy will rewrite:
 
 - SNI  
