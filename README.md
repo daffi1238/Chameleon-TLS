@@ -8,6 +8,8 @@ A practical setup to rewrite the TLS **ClientHello** and force browser-like fing
 Run mitmproxy with your custom script:
 ```bash
 mitmproxy --listen-port 8085 -s chameleon.py
+
+alias chameleon="mitmproxy --listen-port 8085 -s ~/repos/Chameleon-TLS/chameleon.py"
 ```
 This proxy will rewrite:
 
